@@ -29,7 +29,8 @@ def context_from_args(mode: str, paper: str | None, rubric: str | None, role: st
 def process_audio(cfg: Config, store: MeetingStore, audio: Path, mode: str, title: str = "",
                   source: str = "", context: str = "", cleanup: bool = False, log=print) -> str:
     meeting_id = store.new_id(title)
-    segments, meta = transcribe(audio, cfg["transcription"], log=log)
+    hint = " ".join(f"{title}. {context}".split())[:400] if (title or context) else ""
+    segments, meta = transcribe(audio, cfg["transcription"], log=log, vocab_hint=hint)
     if cfg["diarization"]["enabled"]:
         segments = diarize(audio, segments, cfg["diarization"], log=log)
     transcript = render_transcript(segments)

@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import pytest
 
 from meeting_agent.config import DEFAULTS
-from meeting_agent.insights.analyzer import analyze, chunk_text
+from meeting_agent.insights.analyzer import analyze, chunk_text, clean_report
 from meeting_agent.insights.llm import LLMError, OllamaClient, parse_json
 from meeting_agent.report import render_markdown
 from meeting_agent.storage import MeetingStore, WrongPassphrase
@@ -69,6 +69,20 @@ def test_platform_detection_and_urls():
     assert Zoom(None, "bot", print).prepare_url("https://us02web.zoom.us/j/123?pwd=x") == \
         "https://app.zoom.us/wc/join/123?pwd=x"
     assert "userInfo.displayName" in Jitsi(None, "bot", print).prepare_url("https://meet.jit.si/Room")
+
+
+def test_clean_report_fixes_small_model_quirks():
+    rep = clean_report({
+        "strengths": ["Clear design explanation", "[00:31]", "00:45"],
+        "key_points": ["00:00", "00:06"],
+        "competencies": [{"name": "Coding", "rating": 0, "evidence": []},
+                         {"name": "Design", "rating": 4, "evidence": ["[00:02] x"]}],
+        "action_items": [{"owner": "I", "task": "run MLP ablation"}, {"owner": "Karen", "task": "lit review"}],
+    })
+    assert rep["strengths"] == ["Clear design explanation [00:31]"]
+    assert rep["key_points"] == []
+    assert [c["rating"] for c in rep["competencies"]] == [None, 4]
+    assert [a["owner"] for a in rep["action_items"]] == [None, "Karen"]
 
 
 class _FakeOllama(BaseHTTPRequestHandler):

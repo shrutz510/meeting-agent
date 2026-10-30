@@ -26,7 +26,10 @@ def fmt_ts(seconds: float) -> str:
     return f"{h:d}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
-def transcribe(audio_path: Path, cfg: dict[str, Any], log=print) -> tuple[list[Segment], dict[str, Any]]:
+def transcribe(audio_path: Path, cfg: dict[str, Any], log=print,
+               vocab_hint: str = "") -> tuple[list[Segment], dict[str, Any]]:
+    """``vocab_hint`` primes Whisper with names and jargon (paper title, method names,
+    participants) so they are spelled correctly."""
     from faster_whisper import WhisperModel
 
     device = cfg.get("device", "auto")
@@ -37,6 +40,7 @@ def transcribe(audio_path: Path, cfg: dict[str, Any], log=print) -> tuple[list[S
         language=cfg.get("language"),
         vad_filter=cfg.get("vad_filter", True),
         beam_size=5,
+        initial_prompt=vocab_hint or None,
     )
     segments: list[Segment] = []
     for s in seg_iter:

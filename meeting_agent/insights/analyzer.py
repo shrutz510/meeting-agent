@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -77,7 +78,36 @@ def analyze(transcript: str, mode: str, llm_cfg: dict[str, Any], context: str = 
             log(f"  part {i + 1} failed ({e}); skipping")
 
     log("Synthesising report...")
-    system, user = reduce_prompt(mode, json.dumps(notes, ensure_ascii=False), context)
-    report = client.chat_json(system, user)
+    full = transcript if len(chunks) == 1 else ""
+    system, user = reduce_prompt(mode, json.dumps(notes, ensure_ascii=False), context, full)
+    report = clean_report(client.chat_json(system, user))
     report["_meta"] = {"mode": mode, "model": client.model, "chunks": len(chunks)}
+    return report
+
+
+_TS_ONLY = re.compile(r"^\[?\d{1,2}:\d{2}(?::\d{2})?\]?$")
+_PRONOUNS = {"i", "me", "we", "us", "you", "myself"}
+
+
+def clean_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Repair common small-model quirks in the structured output."""
+    for key, val in report.items():
+        if isinstance(val, list) and all(isinstance(v, str) for v in val):
+            merged: list[str] = []
+            for item in (v.strip() for v in val):
+                if not item:
+                    continue
+                if _TS_ONLY.match(item):
+                    # A bare timestamp belongs to the item before it; on its own it's noise.
+                    if merged and not merged[-1].endswith("]"):
+                        merged[-1] += f" [{item.strip('[]')}]"
+                    continue
+                merged.append(item)
+            report[key] = merged
+    for comp in report.get("competencies") or []:
+        if isinstance(comp, dict) and (comp.get("rating") in (0, "0", "", "null") or not comp.get("evidence")):
+            comp["rating"] = None
+    for item in report.get("action_items") or []:
+        if isinstance(item, dict) and str(item.get("owner") or "").strip().lower() in _PRONOUNS:
+            item["owner"] = None
     return report

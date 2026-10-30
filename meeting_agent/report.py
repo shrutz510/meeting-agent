@@ -7,7 +7,8 @@ from typing import Any
 
 def _fmt(item: Any) -> str:
     if isinstance(item, dict):
-        return "; ".join(f"**{k}**: {_fmt(v)}" for k, v in item.items() if v not in (None, "", [], {}))
+        return "; ".join(f"**{k.replace('_', ' ')}**: {_fmt(v)}" for k, v in item.items()
+                         if v not in (None, "", [], {}))
     if isinstance(item, list):
         return ", ".join(_fmt(v) for v in item)
     return str(item)
@@ -43,7 +44,8 @@ def _competencies(rows: list[dict]) -> list[str]:
         return []
     out = ["## Competencies", ""]
     for c in rows:
-        out.append(f"- **{c.get('name')}**: {c.get('rating', '?')}/5")
+        rating = c.get("rating")
+        out.append(f"- **{c.get('name')}**: {f'{rating}/5' if rating else 'not assessed'}")
         for ev in c.get("evidence") or []:
             out.append(f"  - {ev}")
     return out + [""]
