@@ -66,8 +66,12 @@ def test_platform_detection_and_urls():
     assert detect_platform("https://meet.google.com/abc-defg-hij") == "meet"
     assert detect_platform("https://us02web.zoom.us/j/123?pwd=x") == "zoom"
     assert detect_platform("https://meet.jit.si/Room") == "jitsi"
-    assert Zoom(None, "bot", print).prepare_url("https://us02web.zoom.us/j/123?pwd=x") == \
-        "https://app.zoom.us/wc/join/123?pwd=x"
+    assert detect_platform("https://acme.zoom.us/my/jane") == "zoom"
+    assert detect_platform("https://notzoom.us.example.com/j/1") == "generic"
+    zoom = Zoom(None, "bot", print)
+    assert zoom.prepare_url("https://us02web.zoom.us/j/123?pwd=x") == "https://app.zoom.us/wc/join/123?pwd=x"
+    assert zoom.prepare_url("https://app.zoom.us/wc/join/123") == "https://app.zoom.us/wc/join/123"
+    assert zoom.prepare_url("https://acme.zoom.us/my/jane") == "https://acme.zoom.us/my/jane"
     assert "userInfo.displayName" in Jitsi(None, "bot", print).prepare_url("https://meet.jit.si/Room")
 
 

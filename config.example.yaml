@@ -7,6 +7,8 @@ bot:
     locally for note-taking. Nothing is sent to any cloud service. Please say so if
     you'd prefer not to be recorded.
   headless: false            # keep the window visible so you can step in
+  browser: auto              # auto | chrome | chromium (Meet/Zoom prefer real Chrome)
+  admit_timeout_minutes: 15  # how long to wait in a lobby / waiting room
   max_minutes: 180
   leave_after_silence_seconds: 300
 
