@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+# Never commit recordings or exported notes
+*.wav
+*.webm
+*.m4a
+*.mp3
+*.json.enc
+notes*.md

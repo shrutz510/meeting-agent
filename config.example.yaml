@@ -1,0 +1,36 @@
+# Copy to ~/.meeting-agent/config.yaml. Anything omitted uses the defaults.
+
+bot:
+  name: "Notetaker (meeting-agent)"
+  consent_message: >-
+    Hi, I'm an automated notetaker. This meeting is being recorded and transcribed
+    locally for note-taking. Nothing is sent to any cloud service. Please say so if
+    you'd prefer not to be recorded.
+  headless: false            # keep the window visible so you can step in
+  max_minutes: 180
+  leave_after_silence_seconds: 300
+
+transcription:
+  model: small.en            # tiny.en | base.en | small.en | medium.en | large-v3
+  device: auto               # auto | cpu | cuda
+  compute_type: int8         # int8 on CPU; float16 on a GPU
+  language: null             # null = auto-detect (use a non-.en model for other languages)
+  vad_filter: true
+
+diarization:
+  enabled: false             # pip install -e '.[diarize]' and set HF_TOKEN first
+  hf_token_env: HF_TOKEN
+  model: pyannote/speaker-diarization-3.1
+
+llm:
+  base_url: http://127.0.0.1:11434
+  model: llama3.1:8b         # e.g. qwen2.5:14b, mistral-nemo, llama3.1:70b
+  temperature: 0.2
+  num_ctx: 8192
+  chunk_chars: 10000
+  timeout_seconds: 600
+  allow_remote: false        # keep false unless the server is one you control
+
+storage:
+  encrypt: true
+  keep_audio: false          # true = keep an encrypted copy of the raw audio

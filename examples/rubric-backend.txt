@@ -1,0 +1,6 @@
+- System design: decomposes problems, reasons about trade-offs, scale and failure modes
+- Coding and debugging: concrete, correct implementation detail; tests; reading errors
+- Data and storage: modelling, consistency, indexing, migrations
+- Ownership: drove projects end to end, handled incidents, followed through
+- Communication: clear explanations, asks clarifying questions, listens
+- Collaboration: works across teams, handles disagreement, mentors
