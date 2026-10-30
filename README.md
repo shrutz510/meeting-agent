@@ -1,7 +1,8 @@
 # meeting-agent
 
-An open-source agent that joins your meetings, transcribes them, and turns them into
-structured notes. It is built for two kinds of meetings in particular:
+An open-source agent that joins your **Google Meet** and **Zoom** meetings, transcribes
+them, and turns them into structured notes. It is built for two kinds of meetings in
+particular:
 
 - **Interviews**: question-by-question notes, competency ratings with timestamped
   evidence, strengths, concerns, claims worth verifying, follow-up questions, and
@@ -51,7 +52,7 @@ Requires Python 3.10+.
 git clone <this repo> meeting-agent && cd meeting-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .          # Intel Mac: pip install --only-binary cryptography -e .
-playwright install chromium
+playwright install chromium   # or install Google Chrome: Meet and Zoom accept it more readily
 
 # Local LLM (https://ollama.com/download), then:
 ollama pull llama3.1:8b
@@ -65,13 +66,13 @@ everything works offline.
 ## Use
 
 ```bash
-# Interview: give it the role and, optionally, a rubric
+# Interview on Google Meet: give it the role and, optionally, a rubric
 meeting-agent join "https://meet.google.com/abc-defg-hij" --mode interview \
     --title "Backend eng - Sam" --role "Senior Backend Engineer" \
     --rubric examples/rubric-backend.txt --participants "Shruti (interviewer), Sam (candidate)"
 
-# Paper discussion: give it the paper
-meeting-agent join "https://meet.jit.si/MyReadingGroup" --mode paper \
+# Paper discussion on Zoom: give it the paper (use the full invite link, with ?pwd=...)
+meeting-agent join "https://us02web.zoom.us/j/81234567890?pwd=abc123" --mode paper \
     --title "Attention Is All You Need" --paper ~/papers/attention.pdf
 
 # Already have a recording? (any audio/video format)
@@ -95,24 +96,74 @@ Set `MEETING_AGENT_PASSPHRASE` to skip the passphrase prompt (e.g. in a script).
 Otherwise you're asked once per command. The passphrase is never stored.
 **If you lose it, the store can't be decrypted.**
 
-### Supported platforms
+### While the bot is in a meeting
+
+- It posts a recording notice in the chat, then prints **"Hearing audio from the meeting"**
+  once someone speaks. If it says it isn't receiving audio, check that someone else is in
+  the call and unmuted.
+- **To stop:** end the meeting, remove the bot, or press **Ctrl+C**. Whatever was recorded
+  up to that point is transcribed and saved.
+- It leaves on its own after 5 minutes of silence (`bot.leave_after_silence_seconds`).
+- The bot's browser window stays visible. If it can't find a button, it says so; just click
+  it yourself in that window.
+
+## Google Meet
+
+**One-time setup (recommended):** create a separate Google account for the notetaker
+(for example *yourname.notetaker@gmail.com*), then:
+
+```bash
+meeting-agent login
+```
+
+Sign in to **that** account in the window that opens, then close it. Don't use your personal
+account: the bot would show up as you, and your session would live in the bot's browser.
+
+Without an account the bot asks to join as a guest called "Notetaker (meeting-agent)".
+That works for many meetings, but Google often refuses automated guests, and Workspace
+meetings may block guests entirely.
+
+**Each meeting:**
+1. Start or join the Meet yourself.
+2. Run `meeting-agent join "https://meet.google.com/xxx-xxxx-xxx" --mode interview ...`
+3. Click **Admit** when "Notetaker" asks to join.
+
+| Bot says | What to do |
+|---|---|
+| Google Meet won't let this browser join as a guest | Do the one-time `meeting-agent login` setup above. |
+| The host denied the bot's request | Someone clicked Deny; run it again and click Admit. |
+| Waiting for someone in the meeting to admit the bot | Look for the Admit prompt in Meet. |
+
+## Zoom
+
+The bot joins through Zoom's **browser client**, so nobody needs the Zoom app. Use the full
+invite link: the `?pwd=...` part carries the passcode.
+
+**Each meeting:**
+1. Start the meeting (or make sure the host has).
+2. Run `meeting-agent join "https://us02web.zoom.us/j/81234567890?pwd=..." --mode paper ...`
+3. If there's a waiting room, admit "Notetaker (meeting-agent)".
+
+| Bot says | What to do |
+|---|---|
+| A CAPTCHA appeared | Solve it in the bot's window. Zoom sometimes asks guests to; the bot never bypasses it. Signing the bot into a Zoom account (below) makes this rarer. |
+| The host has disabled joining from the browser | In Zoom web settings, the host enables *"Show a Join from your browser link"*. Otherwise use `meeting-agent record` with a loopback device (below). |
+| This Zoom meeting only allows signed-in users | Run `meeting-agent login --url https://zoom.us/signin` and sign in to a (free) Zoom account for the bot. |
+| Zoom says the passcode is wrong | Use the full invite link with `?pwd=`. |
+
+## Other platforms
 
 | Platform | Status | Notes |
 |---|---|---|
-| Jitsi Meet (incl. self-hosted) | best | Fully open source. Self-host it for end-to-end control. |
-| Google Meet | good | Run `meeting-agent login` once and sign the bot's browser profile into a Google account (ideally a dedicated one). The host has to admit the bot. |
-| Zoom (web client) | experimental | Zoom links are rewritten to the browser client. The host must allow web client joins. |
+| Jitsi Meet (incl. self-hosted) | works | On meet.jit.si the host must join (signed in) first; the bot waits. For self-hosted servers whose address doesn't contain "jitsi", add `--platform jitsi`. |
 | Microsoft Teams (web) | experimental | Guest join through the browser. |
 | Anything else | fallback | Use `record` with a loopback device (below). |
-
-Meeting UIs change often. If the bot can't find a button, it says so and waits.
-The browser window is visible by default, so you can click it yourself.
 
 **Loopback capture (fallback):** on macOS install [BlackHole](https://existential.audio/blackhole/)
 (free, open source) and create a Multi-Output Device in Audio MIDI Setup. On Linux use the
 PulseAudio/PipeWire "Monitor" source. On Windows use "Stereo Mix" or VB-Cable.
 
-### Speaker labels
+## Speaker labels
 
 ```bash
 pip install -e '.[diarize]'
@@ -133,6 +184,8 @@ you're most likely to change:
 - `llm.model`: any Ollama model. Bigger models give better insights. `qwen2.5:14b` or
   `llama3.1:70b` work well if your hardware can run them.
 - `bot.consent_message`: posted in chat when the bot joins.
+- `bot.browser`: `auto` uses installed Google Chrome if there is one, otherwise Playwright's
+  Chromium. `bot.headless: true` hides the window, but Meet and Zoom often refuse hidden browsers.
 
 ## Security and privacy
 

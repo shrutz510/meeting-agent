@@ -48,7 +48,8 @@ def cmd_join(args, cfg):
     if args.name:
         bot_cfg["name"] = args.name
     session = _session_dir(cfg)
-    audio = join_and_record(args.url, session, cfg.browser_profile_dir, cfg.work_dir, bot_cfg)
+    audio = join_and_record(args.url, session, cfg.browser_profile_dir, cfg.work_dir, bot_cfg,
+                            platform=args.platform)
     if audio is None:
         shutil.rmtree(session, ignore_errors=True)
         return 1
@@ -187,6 +188,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("url")
     p.add_argument("--name", help="Bot display name")
     p.add_argument("--headless", action="store_true")
+    p.add_argument("--platform", choices=["meet", "jitsi", "zoom", "teams", "generic"],
+                   help="Override auto-detection, e.g. jitsi for a self-hosted server")
     _add_context_args(p)
     p.set_defaults(fn=cmd_join)
 

@@ -10,6 +10,8 @@
   const HOOK_WEBAUDIO = !!window.__maHookWebAudio; // set by Python for apps that play audio via WebAudio (Zoom)
   let ctx = null, dest = null, analyser = null, recorder = null;
   const seenTracks = new Set();
+  const sinks = [];
+  window.__maStats = () => ({ tracks: seenTracks.size, recording: !!recorder });
 
   function ensureGraph() {
     if (ctx) return;
@@ -40,11 +42,30 @@
     recorder.start(2000);
   }
 
+  // The bot's own (fake, silent) microphone must never count as meeting audio.
+  const localTracks = new Set();
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    const origGUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = async (...args) => {
+      const s = await origGUM(...args);
+      s.getTracks().forEach((t) => localTracks.add(t.id));
+      return s;
+    };
+  }
+
   function addTrack(track) {
-    if (!track || track.kind !== "audio" || seenTracks.has(track.id)) return;
+    if (!track || track.kind !== "audio" || seenTracks.has(track.id) || localTracks.has(track.id)) return;
     seenTracks.add(track.id);
     ensureGraph();
-    const src = ctx.createMediaStreamSource(new MediaStream([track]));
+    const stream = new MediaStream([track]);
+    // Some Chrome versions only pull audio from a remote WebRTC track into WebAudio
+    // while the track is also attached to a playing media element. Harmless otherwise.
+    const sink = new Audio();
+    sink.muted = true;
+    sink.srcObject = stream;
+    sink.play().catch(() => {});
+    sinks.push(sink);
+    const src = ctx.createMediaStreamSource(stream);
     src.connect(dest);
     src.connect(analyser);
     if (ctx.state !== "running") ctx.resume();
@@ -64,7 +85,27 @@
     if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = HookedPC;
   }
 
-  // 2) WebAudio playback (Zoom's web client decodes audio itself and plays it
+  // 2) Streams the app plays through <audio>/<video> elements (catches remote
+  //    audio that reached the page some other way than an RTCPeerConnection event).
+  const srcDesc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "srcObject");
+  if (srcDesc && srcDesc.set) {
+    Object.defineProperty(HTMLMediaElement.prototype, "srcObject", {
+      configurable: true,
+      enumerable: srcDesc.enumerable,
+      get() { return srcDesc.get.call(this); },
+      set(stream) {
+        srcDesc.set.call(this, stream);
+        try {
+          if (stream && stream.getAudioTracks && !sinks.includes(this)) {
+            stream.getAudioTracks().forEach(addTrack);
+            stream.addEventListener && stream.addEventListener("addtrack", (e) => addTrack(e.track));
+          }
+        } catch (_) { /* never break the host app */ }
+      },
+    });
+  }
+
+  // 3) WebAudio playback (Zoom's web client decodes audio itself and plays it
   //    through an AudioContext rather than an RTCPeerConnection).
   if (HOOK_WEBAUDIO && window.AudioNode) {
     const origConnect = AudioNode.prototype.connect;

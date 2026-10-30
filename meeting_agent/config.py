@@ -26,6 +26,9 @@ DEFAULTS: dict[str, Any] = {
             "service. Please say so if you'd prefer not to be recorded."
         ),
         "headless": False,
+        # auto = installed Google Chrome if present, else Playwright's Chromium.
+        "browser": "auto",
+        "admit_timeout_minutes": 15,
         "max_minutes": 180,
         # Leave after this many seconds with no incoming audio (0 = never).
         "leave_after_silence_seconds": 300,
